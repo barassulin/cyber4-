@@ -17,10 +17,10 @@ IP = '0.0.0.0'
 PORT = 8080
 SOCKET_TIMEOUT = 2
 REDIRECTION_DICTIONARY = {"/moved": "/"}
-URL_DICTIONARY = {"/calculate-next": 1,
-                  "/calculate-area": 2,
-                  "/upload": 3,
-                  "/image": 4,
+URL_DICTIONARY = {"/calculate-next": calc_next,
+                  "/calculate-area": calc_area,
+                  "/upload": upload,
+                  "/image": image,
                   "/forbidden": 403,
                   "/error": 500
                    }
@@ -56,6 +56,32 @@ def get_file_data(file_name):
         return data
 
 
+def calc_next(request):
+    num=request.split("=")[-1]
+    print(num)
+    http_response=int(num)+1
+    return http_response
+
+
+def calc_area(request):
+
+
+def upload(request):
+
+
+def image(request):
+
+
+def forbidden(request):
+    http_response = "HTTP/1.1 403 forbidden\r\nContent-Length: 0\r\n\r\n"
+    http_response = http_response.encode()
+    return http_response
+
+def error(request):
+    http_response = "HTTP/1.1 500 forbidden\r\nContent-Length: 0\r\n\r\n"
+    http_response = http_response.encode()
+    return http_response
+
 def handle_client_request(resource, client_socket):
     """
     Check the required resource, generate proper HTTP response and send
@@ -74,13 +100,7 @@ def handle_client_request(resource, client_socket):
         uri = REDIRECTION_DICTIONARY[uri]
         http_response = f"HTTP/1.1 302 Found\r\nLocation: {uri}\r\n\r\n".encode()
     elif uri in FUNC_DICTIONARY:
-        num = FUNC_DICTIONARY[uri]
-        if num > 4:
-            http_response = f"HTTP/1.1 {num} forbidden\r\nContent-Length: 0\r\n\r\n"
-            http_response = http_response.encode()
-        else:
-            #check everything
-            
+        http_response = FUNC_DICTIONARY[uri](resource)
     else:
         file_type = uri.split(".")[-1]
         if (file_type == "html" or file_type == "jpg" or file_type == "gif" or file_type == "css" or file_type == "js"
