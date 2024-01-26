@@ -45,11 +45,9 @@ def calc_next(request):
 
 def calc_area(request):
     print("gotit")
-    request=request.split("?")[0]
+    request=request.split("?")[-1]
     num1 = request.split("&")[-1]
     if "height" in num1:
-        print("high")
-        print(height)
         height=num1.split("=")[-1]
     elif "width" in num1:
         width=num1.split("=")[-1]
@@ -59,7 +57,7 @@ def calc_area(request):
     elif "width" in num1:
         width=num1.split("=")[-1]
     http_response = int(height)*int(width)
-    
+
     http_response=str(http_response/2)
     leng=len(http_response)
     http_response=f"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {leng}\r\n\r\n{http_response}"
