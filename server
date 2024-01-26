@@ -1,7 +1,23 @@
 """
 HTTP Server
+
 Author: Bar Assulin
 Date: 25/1/24
+
+Description:
+This program implements a basic HTTP server that can:
+- Serve static files (HTML, CSS, JavaScript, images, etc.)
+- Handle GET and POST requests
+- Perform several calculations:
+    - Calculate the next number in a sequence
+    - Calculate the area of a rectangle
+    - Save uploaded images
+
+Key features:
+- Error handling for invalid requests and exceptions
+- Logging for debugging and monitoring
+- Redirects for specific URLs
+- Assertions for testing and validation
 """
 
 import socket
@@ -23,116 +39,173 @@ LOG_LEVEL = logging.DEBUG
 LOG_DIR = 'log'
 LOG_FILE = LOG_DIR + '/server.log'
 
-
+REDIRECTION_DICTIONARY = {"/moved": "/"}
 RESPOND_DICTIONARY = {"html": f"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n",
-                    "jpg": f"HTTP/1.1 200 OK\r\nContent-Type: image/jpeg\r\n",
-                    'gif': f"HTTP/1.1 200 OK\r\nContent-Type: image/jpeg\r\n",
-                    "css": f"HTTP/1.1 200 OK\r\nContent-Type: text/css\r\n",
-                    "js": (f"HTTP/1.1 200 OK\r\nContent-Type: text/javascript;charset=UTF-8\r\n"),
-                    "txt": f"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n",
-                    "ico": f"HTTP/1.1 200 OK\r\nContent-Type: image/x-icon\r\n",
-                    "png": f"HTTP/1.1 200 OK\r\nContent-Type: image/png\r\n"
-                    }
+                      "jpg": f"HTTP/1.1 200 OK\r\nContent-Type: image/jpeg\r\n",
+                      'gif': f"HTTP/1.1 200 OK\r\nContent-Type: image/jpeg\r\n",
+                      "css": f"HTTP/1.1 200 OK\r\nContent-Type: text/css\r\n",
+                      "js": f"HTTP/1.1 200 OK\r\nContent-Type: text/javascript;charset=UTF-8\r\n",
+                      "txt": f"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n",
+                      "ico": f"HTTP/1.1 200 OK\r\nContent-Type: image/x-icon\r\n",
+                      "png": f"HTTP/1.1 200 OK\r\nContent-Type: image/png\r\n"
+                      }
 
-def calc_next(request,body_req):
+
+def calc_next(request, body_req):
+    """
+        Calculates the next number in a sequence.
+
+        Args:
+            request (str): The HTTP request string.
+            body_req (bytes): The body of the HTTP request (not used in this function).
+
+        Returns:
+            bytes: An HTTP response containing the calculated next number.
+    """
     print("num")
-    num=request.split("=")[-1]
-    http_response=str(int(num)+1)
-    leng=len(http_response)
-    http_response=f"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {leng}\r\n\r\n{http_response}"
-    http_response=(http_response).encode()
+    num = request.split("=")[-1]
+    try:
+        http_response = str(int(num) + 1)
+        leng = len(http_response)
+        http_response = f"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {leng}\r\n\r\n{http_response}"
+        http_response = http_response.encode()
+    except ValueError as err:
+        http_response = "HTTP/1.1 400 BAD REQUEST\r\nContent-Length: 0\r\n\r\n".encode()
+        logging.error("received value error: " + str(err))
+    except Exception as err:
+        http_response = "HTTP/1.1 500 ERROR\r\nContent-Length: 0\r\n\r\n".encode()
+        logging.error("received error: " + str(err))
     return http_response
 
 
-def calc_area(request,body_req):
-    print("gotit")
-    request=request.split("?")[-1]
+def calc_area(request, body_req):
+    """
+        Calculates the s of a triangle.
+
+        Args:
+            request (str): The HTTP request string.
+            body_req (bytes): The body of the HTTP request (not used in this function).
+
+        Returns:
+            bytes: An HTTP response containing the calculated number.
+    """
+    request = request.split("?")[-1]
     num1 = request.split("&")[-1]
     if "height" in num1:
-        height=num1.split("=")[-1]
+        height = num1.split("=")[-1]
     elif "width" in num1:
-        width=num1.split("=")[-1]
-    num1=request.split("&")[0]
+        width = num1.split("=")[-1]
+    num1 = request.split("&")[0]
     if "height" in num1:
-        height =num1.split("=")[-1]
+        height = num1.split("=")[-1]
     elif "width" in num1:
-        width=num1.split("=")[-1]
-    http_response = int(height)*int(width)
-
-    http_response=str(http_response/2)
-    leng=len(http_response)
-    http_response=f"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {leng}\r\n\r\n{http_response}"
-    http_response = (http_response).encode()
+        width = num1.split("=")[-1]
+    try:
+        http_response = int(height) * int(width)
+        http_response = str(http_response / 2)
+        leng = len(http_response)
+        http_response = f"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {leng}\r\n\r\n{http_response}"
+        http_response = http_response.encode()
+    except ValueError as err:
+        http_response = "HTTP/1.1 400 BAD REQUEST\r\nContent-Length: 0\r\n\r\n".encode()
+        logging.error("received value error: " + str(err))
+    except Exception as err:
+        http_response = "HTTP/1.1 500 ERROR\r\nContent-Length: 0\r\n\r\n".encode()
+        logging.error("received error: " + str(err))
     return http_response
 
-def upload(request,body_req):
+
+def upload(request, body_req):
     """
-       save a pic
-       :return: if sucssided or not
-       """
-    name=request.split("=")[-1]
+    Save a pic from client.
+
+    Args:
+        request (str): The HTTP request string.
+        body_req (bytes): The body of the HTTP request (the pic).
+
+    Returns:
+        bytes: An HTTP response if worked or not.
+    """
+    name = request.split("=")[-1]
     try:
-        with open(UPLOAD_FOLDER+name, "wb") as outfile:
-            outfile.write(body_req)  # Write your data
+        with open(UPLOAD_FOLDER + name, "wb") as outfile:
+            outfile.write(body_req)
         http_response = "HTTP/1.1 200 ok\r\nContent-Length: 0\r\n\r\n"
     except Exception as err:
-        print("err: "+str(err))
-        http_response = "HTTP/1.1 500 forbidden\r\nContent-Length: 0\r\n\r\n"
+        logging.error("received error: " + str(err))
+        http_response = "HTTP/1.1 500 ERROR\r\nContent-Length: 0\r\n\r\n"
     return http_response.encode()
 
 
-def image(request,body_req):
+def image(request, body_req):
     """
-       open to the client the photo he took
-       :return: the photo
-       """
+    Openes a pic asked by the client.
 
-    print("got in")
-    name=request.split("=")[-1]
-    print("name:")
-    print(name)
+    Args:
+        request (str): The HTTP request string.
+        body_req (bytes): The body of the HTTP request (not used in this function).
+
+    Returns:
+        bytes: An HTTP response containing the pic.
+    """
+    name = request.split("=")[-1]
     try:
-        if os.path.isfile(UPLOAD_FOLDER+name):
-            print("if true")
-            with open(UPLOAD_FOLDER+name, "rb") as imageFile:
+        if os.path.isfile(UPLOAD_FOLDER + name):
+            with open(UPLOAD_FOLDER + name, "rb") as imageFile:
                 comment = imageFile.read()
-                print("ok")
-            leng=len(comment)
-            content_type=name.split(".")[-1]
-            print("into")
+            leng = len(comment)
+            content_type = name.split(".")[-1]
             if content_type in RESPOND_DICTIONARY:
-                print("works1")
-                http_response = RESPOND_DICTIONARY[content_type]+f"Content-Length: {leng}\r\n\r\n"
-                http_response=http_response.encode()
-                http_response=http_response+comment
-                print("works2")
+                http_response = RESPOND_DICTIONARY[content_type] + f"Content-Length: {leng}\r\n\r\n"
+                http_response = http_response.encode()
+                http_response = http_response + comment
         else:
-            http_response = "HTTP/1.1 500 forbidden\r\nContent-Length: 0\r\n\r\n".encode()
+            http_response = "HTTP/1.1 404 NOT FOUND\r\nContent-Length: 0\r\n\r\n".encode()
     except Exception as err:
-        print("err: "+err)
+        logging.error("received error: " + str(err))
+        http_response = "HTTP/1.1 500 ERROR\r\nContent-Length: 0\r\n\r\n".encode()
     return http_response
 
-def forbidden(request,body_req):
-    http_response = "HTTP/1.1 403 forbidden\r\nContent-Length: 0\r\n\r\n"
+
+def forbidden(request, body_req):
+    """
+        Returns an HTTP response of forbidden
+
+        Args:
+            request (str): The HTTP request string.
+            body_req (bytes): The body of the HTTP request (not used in this function).
+
+        Returns:
+            bytes: An HTTP response of forbidden.
+    """
+    http_response = "HTTP/1.1 403 FORBIDDEN\r\nContent-Length: 0\r\n\r\n"
     http_response = http_response.encode()
     return http_response
 
-def error(request,body_req):
-    http_response = "HTTP/1.1 500 forbidden\r\nContent-Length: 0\r\n\r\n"
+
+def error(request, body_req):
+    """
+        Returns an HTTP response of error
+
+        Args:
+            request (str): The HTTP request string.
+            body_req (bytes): The body of the HTTP request (not used in this function).
+
+        Returns:
+            bytes: An HTTP response of error.
+    """
+    http_response = "HTTP/1.1 500 ERROR\r\nContent-Length: 0\r\n\r\n"
     http_response = http_response.encode()
     return http_response
 
 
-REDIRECTION_DICTIONARY = {"/moved": "/"}
 FUNC_DICTIONARY = {"/calculate-next": calc_next,
-                  "/calculate-area": calc_area,
-                  "/upload": upload,
-                  "/image": image,
-                  "/forbidden": forbidden,
-                  "/error": error
+                   "/calculate-area": calc_area,
+                   "/upload": upload,
+                   "/image": image,
+                   "/forbidden": forbidden,
+                   "/error": error
                    }
-
-
 
 
 def get_file_data(file_name):
@@ -144,7 +217,7 @@ def get_file_data(file_name):
     data = None
     try:
         file_path = WEB_ROOT + file_name
-        print("file_path"+file_path)
+        print("file_path" + file_path)
         with open(file_path, "rb") as file:
             data = file.read()
             print("opened")
@@ -154,11 +227,12 @@ def get_file_data(file_name):
         return data
 
 
-def handle_client_request(resource,body_req, client_socket):
+def handle_client_request(resource, body_req, client_socket):
     """
     Check the required resource, generate proper HTTP response and send
     to client
     :param resource: the required resource
+    :param body_req: the body request
     :param client_socket: a socket for the communication with the client
     :return: None
     """
@@ -170,34 +244,22 @@ def handle_client_request(resource,body_req, client_socket):
     http_response = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n"
     http_response = http_response.encode()
     if "?" in uri:
-        uri=uri.split("?")[0]
-        print("uri: ")
-        print(uri)
+        uri = uri.split("?")[0]
     if uri in REDIRECTION_DICTIONARY:
-        print("red")
         uri = REDIRECTION_DICTIONARY[uri]
         http_response = f"HTTP/1.1 302 Found\r\nLocation: {uri}\r\n\r\n".encode()
     elif uri in FUNC_DICTIONARY:
-        print("in FUNC_DICTIONARY")
-        http_response = FUNC_DICTIONARY[uri](resource,body_req)
-        print("works")
+        http_response = FUNC_DICTIONARY[uri](resource, body_req)
     else:
         file_type = uri.split(".")[-1]
-        print("file_type"+file_type)
         if file_type in RESPOND_DICTIONARY:
-            print("file_type in RESPOND_DICTIONARY")
-            print("uri: "+uri)
             data = get_file_data(uri)
-            print("data")
             leng = len(data)
-            print("len")
-            http_header= RESPOND_DICTIONARY[file_type]+ f"Content-Length: {leng}\r\n\r\n"
+            http_header = RESPOND_DICTIONARY[file_type] + f"Content-Length: {leng}\r\n\r\n"
         else:
             http_header = "HTTP/1.1 500 ERROR SERVER INTERNAL\r\nContent-Length: 0\r\n\r\n"
             data = None
         http_response = http_header.encode() + data
-    print("http: ")
-    print(http_response)
     client_socket.send(http_response)
 
 
@@ -224,15 +286,17 @@ def validate_http_request(request):
 
 
 def post_request_len(request):
-    print("leng func:")
-    print(request)
-    leng=request.split("Content-Length: ")[-1]
-    print(leng)
-    leng=leng.split("\r\n")[0]
-    print("leng")
-    print(leng)
-    leng=int(leng)
-    print("works")
+    """
+        Find content length
+            
+        Args:
+            request (str): The HTTP request string.
+
+        Returns: length of the body.
+    """
+    leng = request.split("Content-Length: ")[-1]
+    leng = leng.split("\r\n")[0]
+    leng = int(leng)
     return leng
 
 
@@ -251,6 +315,7 @@ def validate_post_request(request):
         return True
     return False
 
+
 def handle_client(client_socket):
     """
     Handles client requests: verifies client's requests are legal HTTP, calls
@@ -263,33 +328,30 @@ def handle_client(client_socket):
         try:
             client_request = client_socket.recv(1).decode()
             while '\r\n\r\n' not in client_request:
-                client_request = client_request + client_socket.recv(1).decode()
+                rciv = client_socket.recv(1)
+                if rciv == '':
+                    logging.debug("client request - recived empty response: " + client_request)
+                    client_request = None
+                    break
+                else:
+                    client_request = client_request + rciv.decode()
             logging.debug("getting client request " + client_request)
-            print("client_request")
-            print(client_request)
             valid_http, resource = validate_http_request(client_request)
-            print("chk valid")
             if validate_post_request(client_request):
-                print("valid post:")
-                leng=post_request_len(client_request)
-                print(leng)
-                body_req=client_socket.recv(leng)
-                print("body")
-                print(body_req)
-                print("reso")
-                print(resource)
+                leng = post_request_len(client_request)
+                body_req = client_socket.recv(leng)
             else:
-                body_req=None
+                body_req = None
             if valid_http:
                 print('Got a valid HTTP request')
-                handle_client_request(resource,body_req, client_socket)
+                handle_client_request(resource, body_req, client_socket)
             else:
                 http_header = "HTTP/1.1 400 Request Bad\r\n\r\n"
                 client_socket.send(http_header.encode())
                 logging.debug("sending response" + http_header)
                 print('Error: Not a valid HTTP request')
                 break
-        except Exception as err:  # Catch any unexpected errors
+        except Exception as err:
             logging.error("Error handling client request: " + str(err))
             break  # Close the connection to prevent further issues
 
@@ -330,4 +392,19 @@ if __name__ == "__main__":
     invalid_request = "INVALID_REQUEST"
     assert validate_http_request(invalid_request) == (False, None)
     # Call the main handler function
+
+    assert calc_next("/calculate-next?num=5",
+                     None) == "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 1\r\n\r\n6".encode()
+    assert calc_next("/calculate-next?num=s", None) == "HTTP/1.1 400 BAD REQUEST\r\nContent-Length: 0\r\n\r\n".encode()
+    assert calc_area("/calculate-area?height=3&width=4",
+                     None) == "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 3\r\n\r\n6.0".encode()
+    assert calc_area("/calculate-area?height=d&width=b",
+                     None) == "HTTP/1.1 400 BAD REQUEST\r\nContent-Length: 0\r\n\r\n".encode()
+    assert forbidden("/forbidden", None) == "HTTP/1.1 403 FORBIDDEN\r\nContent-Length: 0\r\n\r\n".encode()
+    assert error("/error", None) == "HTTP/1.1 500 ERROR\r\nContent-Length: 0\r\n\r\n".encode()
+
+    assert post_request_len("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 1\r\n\r\n") == 1
+    assert validate_post_request("POST /forbidden HTTP/1.1") is True
+    assert validate_post_request("GET /forbidden HTTP/1.1") is False
+
     main()
