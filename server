@@ -86,16 +86,29 @@ def image(request,body_req):
        open to the client the photo he took
        :return: the photo
        """
-    name=request.split("=")[-1]
 
-    if os.path.isfile(name):
-        with open(name, "rb") as imageFile:
-            comment = base64.b64encode(imageFile.read())
-        leng=len(comment)
-        http_response=f"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {leng}\r\n\r\n{http_response}"+comment
-    else:
-        comment = "HTTP/1.1 500 forbidden\r\nContent-Length: 0\r\n\r\n"
-    return comment
+    print("got in")
+    name=request.split("=")[-1]
+    print("name:")
+    print(name)
+    try:
+        if os.path.isfile(UPLOAD_FOLDER+name):
+            print("if true")
+            with open(UPLOAD_FOLDER+name, "rb") as imageFile:
+                comment = base64.b64encode(imageFile.read())
+                print("ok")
+            leng=len(comment)
+            content_type=name.split(".")[-1]
+            print("into")
+            if content_type in RESPOND_DICTIONARY:
+                print("works1")
+                http_response=RESPOND_DICTIONARY[content_type]+f"Content-Length: {leng}\r\n\r\n"+comment
+                print("works2")
+        else:
+            http_response = "HTTP/1.1 500 forbidden\r\nContent-Length: 0\r\n\r\n"
+    except Exception as err:
+        print("err: "+err)
+    return http_response.encode()
 
 def forbidden(request,body_req):
     http_response = "HTTP/1.1 403 forbidden\r\nContent-Length: 0\r\n\r\n"
@@ -165,6 +178,7 @@ def handle_client_request(resource,body_req, client_socket):
     elif uri in FUNC_DICTIONARY:
         print("in FUNC_DICTIONARY")
         http_response = FUNC_DICTIONARY[uri](resource,body_req)
+        print("works")
     else:
         file_type = uri.split(".")[-1]
         print("file_type"+file_type)
