@@ -16,15 +16,14 @@ QUEUE_LEN = 1
 IP = '0.0.0.0'
 PORT = 8080
 SOCKET_TIMEOUT = 2
-REDIRECTION_DICTIONARY = {"/moved": "/"}
-URL_DICTIONARY = {"/calculate-next": calc_next,
-                  "/calculate-area": calc_area,
-                  "/upload": upload,
-                  "/image": image,
-                  "/forbidden": 403,
-                  "/error": 500
-                   }
-REDPONED_DICTIONARY = {"html": f"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n",
+
+LOG_FORMAT = '%(levelname)s | %(asctime)s | %(processName)s | %(message)s'
+LOG_LEVEL = logging.DEBUG
+LOG_DIR = 'log'
+LOG_FILE = LOG_DIR + '/server.log'
+
+
+RESPOND_DICTIONARY = {"html": f"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n",
                     "jpg": f"HTTP/1.1 200 OK\r\nContent-Type: image/jpeg\r\n",
                     'gif': f"HTTP/1.1 200 OK\r\nContent-Type: image/jpeg\r\n",
                     "css": f"HTTP/1.1 200 OK\r\nContent-Type: text/css\r\n",
@@ -34,43 +33,44 @@ REDPONED_DICTIONARY = {"html": f"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n"
                     "png": f"HTTP/1.1 200 OK\r\nContent-Type: image/png\r\n"
                     }
 
-LOG_FORMAT = '%(levelname)s | %(asctime)s | %(processName)s | %(message)s'
-LOG_LEVEL = logging.DEBUG
-LOG_DIR = 'log'
-LOG_FILE = LOG_DIR + '/server.log'
-
-def get_file_data(file_name):
-    """
-    Get data from file
-    :param file_name: the name of the file
-    :return: the file992/ data in a string
-    """
-    data = None
-    try:
-        file_path = WEB_ROOT + file_name
-        with open(file_path, "rb") as file:
-            data = file.read()
-    except Exception as err:
-        logging.error("received error: " + str(err))
-    finally:
-        return data
-
-
 def calc_next(request):
+    print("num")
     num=request.split("=")[-1]
-    print(num)
-    http_response=int(num)+1
+    http_response=str(int(num)+1)
+    leng=len(http_response)
+    http_response=f"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {leng}\r\n\r\n{http_response}"
+    http_response=(http_response).encode()
     return http_response
 
 
 def calc_area(request):
-
+    print("gotit")
+    request=request.split("?")[0]
+    num1 = request.split("&")[-1]
+    if "height" in num1:
+        print("high")
+        print(height)
+        height=num1.split("=")[-1]
+    elif "width" in num1:
+        width=num1.split("=")[-1]
+    num1=request.split("&")[0]
+    if "height" in num1:
+        height =num1.split("=")[-1]
+    elif "width" in num1:
+        width=num1.split("=")[-1]
+    http_response = int(height)*int(width)
+    
+    http_response=str(http_response/2)
+    leng=len(http_response)
+    http_response=f"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {leng}\r\n\r\n{http_response}"
+    http_response = (http_response).encode()
+    return http_response
 
 def upload(request):
-
+    print(request)
 
 def image(request):
-
+    print(request)
 
 def forbidden(request):
     http_response = "HTTP/1.1 403 forbidden\r\nContent-Length: 0\r\n\r\n"
@@ -82,6 +82,38 @@ def error(request):
     http_response = http_response.encode()
     return http_response
 
+
+REDIRECTION_DICTIONARY = {"/moved": "/"}
+FUNC_DICTIONARY = {"/calculate-next": calc_next,
+                  "/calculate-area": calc_area,
+                  "/upload": upload,
+                  "/image": image,
+                  "/forbidden": forbidden,
+                  "/error": error
+                   }
+
+
+
+
+def get_file_data(file_name):
+    """
+    Get data from file
+    :param file_name: the name of the file
+    :return: the file992/ data in a string
+    """
+    data = None
+    try:
+        file_path = WEB_ROOT + file_name
+        print("file_path"+file_path)
+        with open(file_path, "rb") as file:
+            data = file.read()
+            print("opened")
+    except Exception as err:
+        logging.error("received error: " + str(err))
+    finally:
+        return data
+
+
 def handle_client_request(resource, client_socket):
     """
     Check the required resource, generate proper HTTP response and send
@@ -90,30 +122,41 @@ def handle_client_request(resource, client_socket):
     :param client_socket: a socket for the communication with the client
     :return: None
     """
+    print("resource: " + resource)
     if resource == '/':
         uri = DEFAULT_URL
     else:
         uri = resource
     http_response = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n"
     http_response = http_response.encode()
+    if "?" in uri:
+        uri=uri.split("?")[0]
+        print("uri: ")
+        print(uri)
     if uri in REDIRECTION_DICTIONARY:
+        print("red")
         uri = REDIRECTION_DICTIONARY[uri]
         http_response = f"HTTP/1.1 302 Found\r\nLocation: {uri}\r\n\r\n".encode()
     elif uri in FUNC_DICTIONARY:
+        print("in FUNC_DICTIONARY")
         http_response = FUNC_DICTIONARY[uri](resource)
     else:
         file_type = uri.split(".")[-1]
-        if (file_type == "html" or file_type == "jpg" or file_type == "gif" or file_type == "css" or file_type == "js"
-                or file_type == "txt" or file_type == "ico" or file_type == "png"):
+        print("file_type"+file_type)
+        if file_type in RESPOND_DICTIONARY:
+            print("file_type in RESPOND_DICTIONARY")
+            print("uri: "+uri)
             data = get_file_data(uri)
-
+            print("data")
             leng = len(data)
-            if file_type in REDPONED_DICTIONARY:
-                http_header= REDPONED_DICTIONARY[file_type]+ f"Content-Length: {leng}\r\n\r\n"
-            else:
-                http_header = "HTTP/1.1 500 ERROR SERVER INTERNAL\r\nContent-Length: 0\r\n\r\n"
-                data = None
-            http_response = http_header.encode() + data
+            print("len")
+            http_header= RESPOND_DICTIONARY[file_type]+ f"Content-Length: {leng}\r\n\r\n"
+        else:
+            http_header = "HTTP/1.1 500 ERROR SERVER INTERNAL\r\nContent-Length: 0\r\n\r\n"
+            data = None
+        http_response = http_header.encode() + data
+    print("http: ")
+    print(http_response)
     client_socket.send(http_response)
 
 
@@ -167,6 +210,8 @@ def handle_client(client_socket):
             while '\r\n\r\n' not in client_request:
                 client_request = client_request + client_socket.recv(1).decode()
             logging.debug("getting client request " + client_request)
+            print("client_request")
+            print(client_request)
             valid_http, resource = validate_http_request(client_request)
             if valid_http:
                 print('Got a valid HTTP request')
