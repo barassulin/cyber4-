@@ -7,11 +7,12 @@ Date: 25/1/24
 import socket
 import re
 import logging
+import base64
 
 # Constants
 WEB_ROOT = "C:/cyber/cyber4+/webroot"  # Adjust this to your web document root
 DEFAULT_URL = "/index.html"
-
+UPLOAD_FOLDER = "C:/cyber/cyber4+/upload/"
 QUEUE_LEN = 1
 IP = '0.0.0.0'
 PORT = 8080
@@ -33,7 +34,7 @@ RESPOND_DICTIONARY = {"html": f"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n",
                     "png": f"HTTP/1.1 200 OK\r\nContent-Type: image/png\r\n"
                     }
 
-def calc_next(request):
+def calc_next(request,body_req):
     print("num")
     num=request.split("=")[-1]
     http_response=str(int(num)+1)
@@ -43,7 +44,7 @@ def calc_next(request):
     return http_response
 
 
-def calc_area(request):
+def calc_area(request,body_req):
     print("gotit")
     request=request.split("?")[-1]
     num1 = request.split("&")[-1]
@@ -64,23 +65,23 @@ def calc_area(request):
     http_response = (http_response).encode()
     return http_response
 
-def upload(request):
+def upload(request,body_req):
     """
-       take a screenshot
+       save a pic
        :return: if sucssided or not
        """
-    name=request.split[-1]
-    name=request.split("\r\n\r\n")[0]
+    name=request.split("=")[-1]
     try:
-        image = request.split("\r\n\r\n")[-1]
-        image.save(name)
-        http_response = "HTTP/1.1 20 ok\r\nContent-Length: 0\r\n\r\n"
-        return http_response
+        with open(UPLOAD_FOLDER+name, "wb") as outfile:
+            outfile.write(body_req)  # Write your data
+        http_response = "HTTP/1.1 200 ok\r\nContent-Length: 0\r\n\r\n"
     except Exception as err:
-        return "HTTP/1.1 500 forbidden\r\nContent-Length: 0\r\n\r\n"
+        print("err: "+str(err))
+        http_response = "HTTP/1.1 500 forbidden\r\nContent-Length: 0\r\n\r\n"
+    return http_response.encode()
 
 
-def image(request):
+def image(request,body_req):
     """
        open to the client the photo he took
        :return: the photo
@@ -96,12 +97,12 @@ def image(request):
         comment = "HTTP/1.1 500 forbidden\r\nContent-Length: 0\r\n\r\n"
     return comment
 
-def forbidden(request):
+def forbidden(request,body_req):
     http_response = "HTTP/1.1 403 forbidden\r\nContent-Length: 0\r\n\r\n"
     http_response = http_response.encode()
     return http_response
 
-def error(request):
+def error(request,body_req):
     http_response = "HTTP/1.1 500 forbidden\r\nContent-Length: 0\r\n\r\n"
     http_response = http_response.encode()
     return http_response
@@ -138,7 +139,7 @@ def get_file_data(file_name):
         return data
 
 
-def handle_client_request(resource, client_socket):
+def handle_client_request(resource,body_req, client_socket):
     """
     Check the required resource, generate proper HTTP response and send
     to client
@@ -163,7 +164,7 @@ def handle_client_request(resource, client_socket):
         http_response = f"HTTP/1.1 302 Found\r\nLocation: {uri}\r\n\r\n".encode()
     elif uri in FUNC_DICTIONARY:
         print("in FUNC_DICTIONARY")
-        http_response = FUNC_DICTIONARY[uri](resource)
+        http_response = FUNC_DICTIONARY[uri](resource,body_req)
     else:
         file_type = uri.split(".")[-1]
         print("file_type"+file_type)
@@ -207,9 +208,15 @@ def validate_http_request(request):
 
 
 def post_request_len(request):
-    leng=request.split("Content-Length:")[-1]
-    leng=leng.split("\r\n")
+    print("leng func:")
+    print(request)
+    leng=request.split("Content-Length: ")[-1]
+    print(leng)
+    leng=leng.split("\r\n")[0]
+    print("leng")
+    print(leng)
     leng=int(leng)
+    print("works")
     return leng
 
 
@@ -245,13 +252,21 @@ def handle_client(client_socket):
             print("client_request")
             print(client_request)
             valid_http, resource = validate_http_request(client_request)
-            #if validate_post_request(resource):
-            #    leng=post_request_len(resource)
-            #    body_req=client_socket.recv(leng)
-            #    resource=resource+body_req
+            print("chk valid")
+            if validate_post_request(client_request):
+                print("valid post:")
+                leng=post_request_len(client_request)
+                print(leng)
+                body_req=client_socket.recv(leng)
+                print("body")
+                print(body_req)
+                print("reso")
+                print(resource)
+            else:
+                body_req=None
             if valid_http:
                 print('Got a valid HTTP request')
-                handle_client_request(resource, client_socket)
+                handle_client_request(resource,body_req, client_socket)
             else:
                 http_header = "HTTP/1.1 400 Request Bad\r\n\r\n"
                 client_socket.send(http_header.encode())
