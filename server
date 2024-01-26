@@ -7,7 +7,7 @@ Date: 25/1/24
 import socket
 import re
 import logging
-import base64
+import os
 
 # Constants
 WEB_ROOT = "C:/cyber/cyber4+/webroot"  # Adjust this to your web document root
@@ -95,20 +95,22 @@ def image(request,body_req):
         if os.path.isfile(UPLOAD_FOLDER+name):
             print("if true")
             with open(UPLOAD_FOLDER+name, "rb") as imageFile:
-                comment = base64.b64encode(imageFile.read())
+                comment = imageFile.read()
                 print("ok")
             leng=len(comment)
             content_type=name.split(".")[-1]
             print("into")
             if content_type in RESPOND_DICTIONARY:
                 print("works1")
-                http_response=RESPOND_DICTIONARY[content_type]+f"Content-Length: {leng}\r\n\r\n"+comment
+                http_response = RESPOND_DICTIONARY[content_type]+f"Content-Length: {leng}\r\n\r\n"
+                http_response=http_response.encode()
+                http_response=http_response+comment
                 print("works2")
         else:
-            http_response = "HTTP/1.1 500 forbidden\r\nContent-Length: 0\r\n\r\n"
+            http_response = "HTTP/1.1 500 forbidden\r\nContent-Length: 0\r\n\r\n".encode()
     except Exception as err:
         print("err: "+err)
-    return http_response.encode()
+    return http_response
 
 def forbidden(request,body_req):
     http_response = "HTTP/1.1 403 forbidden\r\nContent-Length: 0\r\n\r\n"
@@ -259,7 +261,7 @@ def handle_client(client_socket):
     print('Client connected')
     while True:
         try:
-            client_request = client_socket.recv(1024).decode()
+            client_request = client_socket.recv(1).decode()
             while '\r\n\r\n' not in client_request:
                 client_request = client_request + client_socket.recv(1).decode()
             logging.debug("getting client request " + client_request)
