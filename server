@@ -65,10 +65,36 @@ def calc_area(request):
     return http_response
 
 def upload(request):
-    print(request)
+    """
+       take a screenshot
+       :return: if sucssided or not
+       """
+    name=request.split[-1]
+    name=request.split("\r\n\r\n")[0]
+    try:
+        image = request.split("\r\n\r\n")[-1]
+        image.save(name)
+        http_response = "HTTP/1.1 20 ok\r\nContent-Length: 0\r\n\r\n"
+        return http_response
+    except Exception as err:
+        return "HTTP/1.1 500 forbidden\r\nContent-Length: 0\r\n\r\n"
+
 
 def image(request):
-    print(request)
+    """
+       open to the client the photo he took
+       :return: the photo
+       """
+    name=request.split("=")[-1]
+
+    if os.path.isfile(name):
+        with open(name, "rb") as imageFile:
+            comment = base64.b64encode(imageFile.read())
+        leng=len(comment)
+        http_response=f"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {leng}\r\n\r\n{http_response}"+comment
+    else:
+        comment = "HTTP/1.1 500 forbidden\r\nContent-Length: 0\r\n\r\n"
+    return comment
 
 def forbidden(request):
     http_response = "HTTP/1.1 403 forbidden\r\nContent-Length: 0\r\n\r\n"
@@ -179,6 +205,14 @@ def validate_http_request(request):
 
     return False, None
 
+
+def post_request_len(request):
+    leng=request.split("Content-Length:")[-1]
+    leng=leng.split("\r\n")
+    leng=int(leng)
+    return leng
+
+
 def validate_post_request(request):
     """
     Check if request is a valid POST request and returns TRUE / FALSE and
@@ -191,8 +225,8 @@ def validate_post_request(request):
     mch = re.search(pattern, request)
     if mch:
         req_url = mch.group(1)
-        return True, req_url
-    return False, None
+        return True
+    return False
 
 def handle_client(client_socket):
     """
@@ -211,6 +245,10 @@ def handle_client(client_socket):
             print("client_request")
             print(client_request)
             valid_http, resource = validate_http_request(client_request)
+            #if validate_post_request(resource):
+            #    leng=post_request_len(resource)
+            #    body_req=client_socket.recv(leng)
+            #    resource=resource+body_req
             if valid_http:
                 print('Got a valid HTTP request')
                 handle_client_request(resource, client_socket)
